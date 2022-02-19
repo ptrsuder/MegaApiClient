@@ -1,6 +1,7 @@
 ﻿namespace CG.Web.MegaApiClient
 {
   using System;
+  using System.Buffers.Binary;
   using System.Collections.Generic;
   using System.Globalization;
   using System.IO;
@@ -387,7 +388,7 @@
       }
 
       return GetNodes().Where(n => n.ParentId == parent.Id);
-    }
+    }    
 
     /// <summary>
     /// Delete a node from the filesytem
@@ -460,6 +461,143 @@
       var request = CreateNodeRequest.CreateFolderNodeRequest(parent, attributes.ToBase64(), encryptedKey.ToBase64(), key);
       var response = Request<GetNodesResponse>(request, _masterKey);
       return response.Nodes[0];
+    }
+    public string ImportFile(Uri uri, INode parent = null)
+    {
+      if (parent == null)
+      {
+        var nodes = GetNodes();
+        parent = nodes.Single(n => n.Type == NodeType.Root);
+      }
+
+      if (parent.Type == NodeType.File)
+      {
+        throw new ArgumentException("Invalid parent node");
+      }
+
+      EnsureLoggedIn();
+      
+      string id;
+      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder)
+          && !TryGetPartsFromLegacyUri(uri, out id, out decryptedKey, out isFolder))
+      {
+        throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
+      }
+
+      Node node = null;
+      var fileId = "";
+      var fullKey = new byte[32];
+
+      if (isFolder)
+      {
+        var uriRegex = new Regex(@"/(?<type>(file))/(?<id>[^#]+)");
+        var match = uriRegex.Match(uri.ToString());
+        fileId = uriRegex.Match(uri.ToString()).Groups["id"].Value;
+                
+        var nodes = GetFullNodesFromLink(uri, out _);
+        node = (Node)nodes.FirstOrDefault(x => x.Id == fileId);
+        fullKey = node.FullKey;
+      }
+      else
+      {
+        node = (Node)GetFullNodeFromLink(uri);
+        fullKey = decryptedKey;
+        fileId = node.Id;
+      }
+      
+      var attributes = Crypto.EncryptAttributes(new Attributes(node.Name, node.Attributes), node.Key);      
+      var encryptedKey = Crypto.EncryptKey(fullKey, _masterKey);  
+
+      RequestBase request = null;
+
+      if (isFolder)
+      {
+        request = ImportFolderNodeRequest.ImportFileRequest(
+        parent.Id,
+        attributes.ToBase64(),
+        encryptedKey.ToBase64(),
+        fileId
+        );
+      }
+      else
+      {
+        request = ImportNodeRequest.ImportFileNodeRequest(
+        parent.Id,
+        attributes.ToBase64(),
+        encryptedKey.ToBase64(),
+        fileId
+        );
+      }
+   
+      var response = Request<string>(request, _masterKey);
+      return response;
+    }
+    public string ImportFolder(Uri uri, INode parent = null)
+    {
+      if (parent == null)
+      {
+        var userNodes = GetNodes();
+        parent = userNodes.Single(n => n.Type == NodeType.Root);
+      }
+
+      if (parent.Type == NodeType.File)
+      {
+        throw new ArgumentException("Invalid parent node");
+      }
+
+      EnsureLoggedIn();
+
+      string id;
+      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder, out var lastfolderId)
+          && !TryGetPartsFromLegacyUri(uri, out id, out decryptedKey, out isFolder))
+      {
+        throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
+      }    
+      
+      var fullKey = new byte[32];
+      
+      //var lastfolderId = "";
+      //var uriRegex = new Regex("(?<type>folder)/(?<id>.+)#(?<key>[^/]+)(/folder/)?(?<lastid>[^/]+)?");
+      //var match = uriRegex.Match(uri.ToString());
+      //lastfolderId = match.Groups["lastid"].Value;
+      //if (lastfolderId == "")
+      //  lastfolderId = match.Groups["id"].Value;
+
+      var nodes = GetFullNodesFromLink(uri, out _);
+      //var filteredNodes = FilterNodes(nodes, lastfolderId);      
+
+      RequestBase request = null;
+
+      request = ImportFolderNodeRequest.ImportFolderRequest(parent.Id);
+
+      foreach (var subnode in nodes.Where(x => x.Type == NodeType.Directory))
+      {
+        var attributes = Crypto.EncryptAttributes(new Attributes(subnode.Name, ((Node)subnode).Attributes), ((Node)subnode).Key);
+        var encryptedKey = Crypto.EncryptKey(((Node)subnode).Key, _masterKey);
+        (request as ImportFolderNodeRequest).Nodes.Add(new ImportFolderNodeRequest.ImportFolderNodeRequestData
+        {
+          Attributes = attributes.ToBase64(),
+          Key = encryptedKey.ToBase64(),
+          Type = NodeType.Directory,
+          PublicLinkId = subnode.Id
+        });
+      }
+      foreach (var subnode in nodes.Where(x => x.Type == NodeType.File))
+      {
+        var attributes = Crypto.EncryptAttributes(new Attributes(subnode.Name, ((Node)subnode).Attributes), ((Node)subnode).Key);
+        var encryptedKey = Crypto.EncryptKey(((Node)subnode).FullKey, _masterKey);
+        (request as ImportFolderNodeRequest).Nodes.Add(new ImportFolderNodeRequest.ImportFolderFileNodeRequestData
+        {
+          Attributes = attributes.ToBase64(),
+          Key = encryptedKey.ToBase64(),
+          Type = NodeType.File,
+          PublicLinkId = subnode.Id,
+          ParentId = subnode.ParentId
+        });
+      }
+
+      var response = Request<string>(request, _masterKey);
+      return response;
     }
 
     /// <summary>
@@ -657,6 +795,11 @@
     /// <exception cref="ArgumentNullException">uri is null</exception>
     /// <exception cref="ArgumentException">Uri is not valid (id and key are required)</exception>
     public INode GetNodeFromLink(Uri uri)
+    {      
+      return new PublicNode(GetFullNodeFromLink(uri) as Node, null);
+    }
+
+    internal INode GetFullNodeFromLink(Uri uri)
     {
       if (uri == null)
       {
@@ -671,7 +814,7 @@
       var downloadRequest = new DownloadUrlRequestFromId(id);
       var downloadResponse = Request<DownloadUrlResponse>(downloadRequest);
 
-      return new PublicNode(new Node(id, downloadResponse, key, iv, metaMac), null);
+      return new Node(id, downloadResponse, key, iv, metaMac);
     }
 
     /// <summary>
@@ -684,6 +827,15 @@
     /// <exception cref="ArgumentException">Uri is not valid (id and key are required)</exception>
     public IEnumerable<INode> GetNodesFromLink(Uri uri)
     {
+      return GetFullNodesFromLink(uri, out var shareId).Select(x => new PublicNode(x as Node, shareId)).OfType<INode>();
+    }
+    public IEnumerable<INode> GetNodesFromLink(Uri uri, string lastId = "")
+    {
+      return GetFullNodesFromLink(uri, out var shareId).Select(x => new PublicNode(x as Node, shareId)).OfType<INode>();
+    }
+
+    internal IEnumerable<INode> GetFullNodesFromLink(Uri uri, out string shareId)
+    {
       if (uri == null)
       {
         throw new ArgumentNullException("uri");
@@ -691,13 +843,16 @@
 
       EnsureLoggedIn();
 
-      GetPartsFromUri(uri, out var shareId, out _, out _, out var key);
+      GetPartsFromUri(uri, out shareId, out _, out _, out var key, out var lastId);
 
       // Retrieve attributes
       var getNodesRequest = new GetNodesRequest(shareId);
       var getNodesResponse = Request<GetNodesResponse>(getNodesRequest, key);
 
-      return getNodesResponse.Nodes.Select(x => new PublicNode(x, shareId)).OfType<INode>();
+      if(lastId == "")
+        return getNodesResponse.Nodes.OfType<INode>();
+      else
+        return FilterNodes(getNodesResponse.Nodes, lastId);
     }
 
     /// <summary>
@@ -1027,6 +1182,23 @@
 
     #region Private static methods
 
+    private static List<INode> FilterNodes(IEnumerable<INode> nodes, string rootId)
+    {
+      var filteredNodes = new List<INode>();
+
+      var currentNode = nodes.Where(x => x.Id == rootId).FirstOrDefault();
+      filteredNodes.Add(currentNode);
+
+      var subfolders = nodes.Where(x => (x.Type == NodeType.Directory && x.ParentId == rootId));
+      foreach (var subfolder in subfolders)
+        filteredNodes.AddRange(FilterNodes(nodes, subfolder.Id));
+
+      var files = nodes.Where(x => (x.Type == NodeType.File && x.ParentId == rootId));
+      filteredNodes.AddRange(files);
+
+      return filteredNodes;
+    }
+
     private static string GenerateHash(string email, byte[] passwordAesKey)
     {
       var emailBytes = email.ToBytes();
@@ -1233,6 +1405,26 @@
       }
     }
 
+    private void GetPartsFromUri(Uri uri, out string id, out byte[] iv, out byte[] metaMac, out byte[] key, out string lastId)
+    {
+      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder, out lastId)
+          && !TryGetPartsFromLegacyUri(uri, out id, out decryptedKey, out isFolder))
+      {
+        throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
+      }
+
+      if (isFolder)
+      {
+        iv = null;
+        metaMac = null;
+        key = decryptedKey;
+      }
+      else
+      {
+        Crypto.GetPartsFromDecryptedKey(decryptedKey, out iv, out metaMac, out key);
+      }
+    }
+
     private bool TryGetPartsFromUri(Uri uri, out string id, out byte[] decryptedKey, out bool isFolder)
     {
       var uriRegex = new Regex(@"/(?<type>(file|folder))/(?<id>[^#]+)#(?<key>[^$/]+)");
@@ -1252,6 +1444,28 @@
         return false;
       }
     }
+
+    private bool TryGetPartsFromUri(Uri uri, out string id, out byte[] decryptedKey, out bool isFolder, out string lastId)
+    {
+      var uriRegex = new Regex(@"/(?<type>(file|folder))/(?<id>[^#]+)#(?<key>[^$/]+)(/folder/(?<lastId>[^/]+))?");
+      var match = uriRegex.Match(uri.PathAndQuery + uri.Fragment);
+      if (match.Success)
+      {
+        id = match.Groups["id"].Value;
+        decryptedKey = match.Groups["key"].Value.FromBase64();
+        isFolder = match.Groups["type"].Value == "folder";
+        lastId = match.Groups["lastId"].Value;
+        return true;
+      }
+      else
+      {
+        id = null;
+        decryptedKey = null;
+        isFolder = default;
+        lastId = null;
+        return false;
+      }
+    }    
 
     private bool TryGetPartsFromLegacyUri(Uri uri, out string id, out byte[] decryptedKey, out bool isFolder)
     {
