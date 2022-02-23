@@ -1,6 +1,5 @@
 ﻿namespace CG.Web.MegaApiClient.Serialization
 {
-  using System;
   using System.Collections.Generic;
   using Newtonsoft.Json;
 
@@ -20,6 +19,7 @@
         }
       };
       ParentId = parentNodeId;
+
       //if (!(parentNode is INodeCrypto parentNodeCrypto))
       //{
       //  throw new ArgumentException("parentNode node must implement INodeCrypto");

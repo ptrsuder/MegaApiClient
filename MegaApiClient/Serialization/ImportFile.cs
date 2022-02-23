@@ -46,11 +46,6 @@
       return new ImportNodeRequest(parentNodeId, attributes, encryptedkey, completionHandle);
     }
 
-    //public static CreateNodeRequest CreateFolderNodeRequest(INode parentNode, string attributes, string encryptedkey, byte[] key)
-    //{
-    //  return new CreateNodeRequest(parentNode, NodeType.Directory, attributes, encryptedkey, key, "xxxxxxxx");
-    //}
-
     internal class ImportNodeRequestData
     {
       [JsonProperty("ph")]

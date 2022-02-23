@@ -1,7 +1,6 @@
 ﻿namespace CG.Web.MegaApiClient
 {
   using System;
-  using System.Buffers.Binary;
   using System.Collections.Generic;
   using System.Globalization;
   using System.IO;
@@ -462,7 +461,31 @@
       var response = Request<GetNodesResponse>(request, _masterKey);
       return response.Nodes[0];
     }
-    public string ImportFile(Uri uri, INode parent = null)
+
+    /// <summary>
+    /// Import public file/folder to user's storage
+    /// </summary>
+    /// <param name="uri">Public file/folder link</param>
+    /// <param name="parent">Parent node to attach imported file</param>
+    /// <exception cref="NotSupportedException">Not logged in</exception>
+    /// <exception cref="ApiException">Mega.co.nz service reports an error</exception>
+    /// <exception cref="ArgumentException">parent is not valid (all types are allowed expect <see cref="NodeType.File" />)</exception>
+    public IEnumerable<INode> Import(Uri uri, INode parent = null)
+    {
+      if (uri.ToString().Contains("file"))
+        return new INode[] { ImportFile(uri, parent) };
+      else
+        return ImportFolder(uri, parent);
+    }
+    /// <summary>
+    /// Import public file to user's storage
+    /// </summary>
+    /// <param name="uri">Public file link</param>
+    /// <param name="parent">Parent node to attach imported file</param>
+    /// <exception cref="NotSupportedException">Not logged in</exception>
+    /// <exception cref="ApiException">Mega.co.nz service reports an error</exception>
+    /// <exception cref="ArgumentException">parent is not valid (all types are allowed expect <see cref="NodeType.File" />)</exception>
+    public INode ImportFile(Uri uri, INode parent = null)
     {
       if (parent == null)
       {
@@ -529,10 +552,18 @@
         );
       }
    
-      var response = Request<string>(request, _masterKey);
-      return response;
+      var response = Request<GetNodesResponse>(request, _masterKey);
+      return response.Nodes[0];
     }
-    public string ImportFolder(Uri uri, INode parent = null)
+    /// <summary>
+    /// Import public folder to user's storage
+    /// </summary>
+    /// <param name="uri">Public folder link</param>
+    /// <param name="parent">Parent node to attach imported file</param>
+    /// <exception cref="NotSupportedException">Not logged in</exception>
+    /// <exception cref="ApiException">Mega.co.nz service reports an error</exception>
+    /// <exception cref="ArgumentException">parent is not valid (all types are allowed expect <see cref="NodeType.File" />)</exception>
+    public IEnumerable<INode> ImportFolder(Uri uri, INode parent = null)
     {
       if (parent == null)
       {
@@ -545,26 +576,11 @@
         throw new ArgumentException("Invalid parent node");
       }
 
-      EnsureLoggedIn();
-
-      string id;
-      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder, out var lastfolderId)
-          && !TryGetPartsFromLegacyUri(uri, out id, out decryptedKey, out isFolder))
-      {
-        throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
-      }    
+      EnsureLoggedIn();     
       
-      var fullKey = new byte[32];
-      
-      //var lastfolderId = "";
-      //var uriRegex = new Regex("(?<type>folder)/(?<id>.+)#(?<key>[^/]+)(/folder/)?(?<lastid>[^/]+)?");
-      //var match = uriRegex.Match(uri.ToString());
-      //lastfolderId = match.Groups["lastid"].Value;
-      //if (lastfolderId == "")
-      //  lastfolderId = match.Groups["id"].Value;
+      var fullKey = new byte[32];      
 
-      var nodes = GetFullNodesFromLink(uri, out _);
-      //var filteredNodes = FilterNodes(nodes, lastfolderId);      
+      var nodes = GetFullNodesFromLink(uri, out _);   
 
       RequestBase request = null;
 
@@ -596,8 +612,8 @@
         });
       }
 
-      var response = Request<string>(request, _masterKey);
-      return response;
+      var response = Request<GetNodesResponse>(request, _masterKey);
+      return response.Nodes;
     }
 
     /// <summary>
@@ -828,11 +844,7 @@
     public IEnumerable<INode> GetNodesFromLink(Uri uri)
     {
       return GetFullNodesFromLink(uri, out var shareId).Select(x => new PublicNode(x as Node, shareId)).OfType<INode>();
-    }
-    public IEnumerable<INode> GetNodesFromLink(Uri uri, string lastId = "")
-    {
-      return GetFullNodesFromLink(uri, out var shareId).Select(x => new PublicNode(x as Node, shareId)).OfType<INode>();
-    }
+    }  
 
     internal IEnumerable<INode> GetFullNodesFromLink(Uri uri, out string shareId)
     {
@@ -1182,7 +1194,7 @@
 
     #region Private static methods
 
-    private static List<INode> FilterNodes(IEnumerable<INode> nodes, string rootId)
+    private static IEnumerable<INode> FilterNodes(IEnumerable<INode> nodes, string rootId)
     {
       var filteredNodes = new List<INode>();
 
