@@ -499,10 +499,8 @@
       }
 
       EnsureLoggedIn();
-      
-      string id;
-      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder)
-          && !TryGetPartsFromLegacyUri(uri, out id, out decryptedKey, out isFolder))
+            
+      if (!TryGetPartsFromUri(uri, out _, out var decryptedKey, out var isFolder, out _))
       {
         throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
       }
@@ -784,7 +782,7 @@
 
       EnsureLoggedIn();
 
-      GetPartsFromUri(uri, out var id, out var iv, out var metaMac, out var key);
+      GetPartsFromUri(uri, out var id, out var iv, out var metaMac, out var key, out var lastId);
 
       // Retrieve download URL
       var downloadRequest = new DownloadUrlRequestFromId(id);
@@ -824,7 +822,7 @@
 
       EnsureLoggedIn();
 
-      GetPartsFromUri(uri, out var id, out var iv, out var metaMac, out var key);
+      GetPartsFromUri(uri, out var id, out var iv, out var metaMac, out var key, out var lastId);
 
       // Retrieve attributes
       var downloadRequest = new DownloadUrlRequestFromId(id);
@@ -1395,32 +1393,11 @@
       {
         throw new NotSupportedException("Already logged in");
       }
-    }
-
-    private void GetPartsFromUri(Uri uri, out string id, out byte[] iv, out byte[] metaMac, out byte[] key)
-    {
-      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder)
-          && !TryGetPartsFromLegacyUri(uri, out id, out decryptedKey, out isFolder))
-      {
-        throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
-      }
-
-      if (isFolder)
-      {
-        iv = null;
-        metaMac = null;
-        key = decryptedKey;
-      }
-      else
-      {
-        Crypto.GetPartsFromDecryptedKey(decryptedKey, out iv, out metaMac, out key);
-      }
-    }
+    }   
 
     private void GetPartsFromUri(Uri uri, out string id, out byte[] iv, out byte[] metaMac, out byte[] key, out string lastId)
     {
-      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder, out lastId)
-          && !TryGetPartsFromLegacyUri(uri, out id, out decryptedKey, out isFolder))
+      if (!TryGetPartsFromUri(uri, out id, out var decryptedKey, out var isFolder, out lastId))
       {
         throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
       }
@@ -1435,31 +1412,15 @@
       {
         Crypto.GetPartsFromDecryptedKey(decryptedKey, out iv, out metaMac, out key);
       }
-    }
-
-    private bool TryGetPartsFromUri(Uri uri, out string id, out byte[] decryptedKey, out bool isFolder)
-    {
-      var uriRegex = new Regex(@"/(?<type>(file|folder))/(?<id>[^#]+)#(?<key>[^$/]+)");
-      var match = uriRegex.Match(uri.PathAndQuery + uri.Fragment);
-      if (match.Success)
-      {
-        id = match.Groups["id"].Value;
-        decryptedKey = match.Groups["key"].Value.FromBase64();
-        isFolder = match.Groups["type"].Value == "folder";
-        return true;
-      }
-      else
-      {
-        id = null;
-        decryptedKey = null;
-        isFolder = default;
-        return false;
-      }
-    }
+      if (lastId == "") lastId = id;
+    }    
 
     private bool TryGetPartsFromUri(Uri uri, out string id, out byte[] decryptedKey, out bool isFolder, out string lastId)
     {
-      var uriRegex = new Regex(@"/(?<type>(file|folder))/(?<id>[^#]+)#(?<key>[^$/]+)(/folder/(?<lastId>[^/]+))?");
+      if (!uri.ToString().ToLower().Contains("folder") && !uri.ToString().ToLower().Contains("file"))
+        uri = ConvertLegacyUri(uri);
+
+      var uriRegex = new Regex(@"/(?<type>(file|folder))/(?<id>[^#]+)#(?<key>[^$/]+)(/(file|folder)/(?<lastId>[^/]+))?");
       var match = uriRegex.Match(uri.PathAndQuery + uri.Fragment);
       if (match.Success)
       {
@@ -1477,26 +1438,11 @@
         lastId = null;
         return false;
       }
-    }    
+    }
 
-    private bool TryGetPartsFromLegacyUri(Uri uri, out string id, out byte[] decryptedKey, out bool isFolder)
+    private Uri ConvertLegacyUri(Uri uri)
     {
-      var uriRegex = new Regex(@"#(?<type>F?)!(?<id>[^!]+)!(?<key>[^$!\?]+)");
-      var match = uriRegex.Match(uri.Fragment);
-      if (match.Success)
-      {
-        id = match.Groups["id"].Value;
-        decryptedKey = match.Groups["key"].Value.FromBase64();
-        isFolder = match.Groups["type"].Value == "F";
-        return true;
-      }
-      else
-      {
-        id = null;
-        decryptedKey = null;
-        isFolder = default;
-        return false;
-      }
+      return new Uri(uri.ToString().Replace("#F!", "folder/").Replace("#!", "file/").Replace("!", "#"));      
     }
 
     private IEnumerable<int> ComputeChunksSizesToUpload(long[] chunksPositions, long streamLength)
