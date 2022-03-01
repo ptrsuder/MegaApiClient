@@ -18,18 +18,7 @@
           PublicLinkId = publicLinkId
         }
       };
-      ParentId = parentNodeId;     
-      
-      //if (!(parentNode is INodeCrypto parentNodeCrypto))
-      //{
-      //  throw new ArgumentException("parentNode node must implement INodeCrypto");
-      //}
-
-      //if (parentNodeCrypto.SharedKey != null)
-      //{
-      //  Share = new ShareData(parentNode.Id);
-      //  Share.AddItem(completionHandle, key, parentNodeCrypto.SharedKey);
-      //}
+      ParentId = parentNodeId;  
     }
 
     [JsonProperty("t")]
@@ -43,7 +32,16 @@
 
     public static ImportNodeRequest ImportFileNodeRequest(string parentNodeId, string attributes, string encryptedkey, string completionHandle)
     {
-      return new ImportNodeRequest(parentNodeId, attributes, encryptedkey, completionHandle);
+      return new ImportNodeRequest(parentNodeId, attributes, encryptedkey, completionHandle);     
+    }
+
+    public static ImportNodeRequest ImportFileNodeRequest(INode parentNode, string attributes, string encryptedkey, string completionHandle)
+    {
+      if (!(parentNode is INodeCrypto parentNodeCrypto))
+      {
+        throw new ArgumentException("parentNode node must implement INodeCrypto");
+      }
+      return new ImportNodeRequest(parentNode.Id, attributes, encryptedkey, completionHandle);
     }
 
     internal class ImportNodeRequestData
