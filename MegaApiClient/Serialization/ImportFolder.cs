@@ -1,5 +1,6 @@
 ﻿namespace CG.Web.MegaApiClient.Serialization
 {
+  using System;
   using System.Collections.Generic;
   using Newtonsoft.Json;
 
@@ -18,18 +19,7 @@
           PublicLinkId = publicLinkId
         }
       };
-      ParentId = parentNodeId;
-
-      //if (!(parentNode is INodeCrypto parentNodeCrypto))
-      //{
-      //  throw new ArgumentException("parentNode node must implement INodeCrypto");
-      //}
-
-      //if (parentNodeCrypto.SharedKey != null)
-      //{
-      //  Share = new ShareData(parentNode.Id);
-      //  Share.AddItem(completionHandle, key, parentNodeCrypto.SharedKey);
-      //}
+      ParentId = parentNodeId;  
     }
 
     private ImportFolderNodeRequest(string parentNodeId)
@@ -37,17 +27,6 @@
     {
       Nodes = new List<ImportFolderNodeRequestData>();
       ParentId = parentNodeId;
-
-      //if (!(parentNode is INodeCrypto parentNodeCrypto))
-      //{
-      //  throw new ArgumentException("parentNode node must implement INodeCrypto");
-      //}
-
-      //if (parentNodeCrypto.SharedKey != null)
-      //{
-      //  Share = new ShareData(parentNode.Id);
-      //  Share.AddItem(completionHandle, key, parentNodeCrypto.SharedKey);
-      //}
     }
 
     [JsonProperty("t")]
@@ -64,15 +43,28 @@
       return new ImportFolderNodeRequest(parentNodeId, attributes, encryptedkey, completionHandle);
     }
 
+    public static ImportFolderNodeRequest ImportFileRequest(INode parentNode, string attributes, string encryptedkey, string completionHandle)
+    {
+      if (!(parentNode is INodeCrypto parentNodeCrypto))
+      {
+        throw new ArgumentException("parentNode node must implement INodeCrypto");
+      }
+      return new ImportFolderNodeRequest(parentNode.Id, attributes, encryptedkey, completionHandle);
+    }
+
     public static ImportFolderNodeRequest ImportFolderRequest(string parentNodeId)
     {
       return new ImportFolderNodeRequest(parentNodeId);
     }
 
-    //public static CreateNodeRequest CreateFolderNodeRequest(INode parentNode, string attributes, string encryptedkey, byte[] key)
-    //{
-    //  return new CreateNodeRequest(parentNode, NodeType.Directory, attributes, encryptedkey, key, "xxxxxxxx");
-    //}
+    public static ImportFolderNodeRequest ImportFolderRequest(INode parentNode)
+    {
+      if (!(parentNode is INodeCrypto parentNodeCrypto))
+      {
+        throw new ArgumentException("parentNode node must implement INodeCrypto");
+      }
+      return new ImportFolderNodeRequest(parentNode.Id);
+    }
 
     internal class ImportFolderNodeRequestData
     {
