@@ -809,7 +809,11 @@
     /// <exception cref="ArgumentNullException">uri is null</exception>
     /// <exception cref="ArgumentException">Uri is not valid (id and key are required)</exception>
     public INode GetNodeFromLink(Uri uri)
-    {      
+    {
+      var uriString = uri.ToString().ToLower();
+      if (uriString.Contains("file") && uriString.Contains("folder")) //is file from shared folder
+        return GetNodesFromLink(uri).FirstOrDefault();
+
       return new PublicNode(GetFullNodeFromLink(uri) as Node, null);
     }
 
