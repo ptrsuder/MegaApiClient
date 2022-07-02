@@ -581,38 +581,73 @@
       var nodes = GetFullNodesFromLink(uri, out _);   
 
       RequestBase request = null;
+      
+      return ImportNodes(nodes.ToArray(), parent);
+    }
+
+    /// <summary>
+    /// Import collection of nodes from public folder to user's storage
+    /// </summary>
+    /// <param name="nodes">Array of public nodes (both directories and files)</param>
+    /// <param name="parent">Parent node to attach imported file</param>
+    /// <exception cref="NotSupportedException">Not logged in</exception>
+    /// <exception cref="ApiException">Mega.co.nz service reports an error</exception>
+    /// <exception cref="ArgumentException">parent is not valid (all types are allowed expect <see cref="NodeType.File" />)</exception>
+    public IEnumerable<INode> ImportNodes(INode[] nodes, INode parent = null)
+    {
+      if (parent == null)
+      {
+        var userNodes = GetNodes();
+        parent = userNodes.Single(n => n.Type == NodeType.Root);
+      }
+
+      if (parent.Type == NodeType.File)
+      {
+        throw new ArgumentException("Invalid parent node");
+      }
+
+      EnsureLoggedIn();
+
+      var fullKey = new byte[32];
+
+      RequestBase request = null;
 
       request = ImportFolderNodeRequest.ImportFolderRequest(parent.Id);
 
-      foreach (var subnode in nodes.Where(x => x.Type == NodeType.Directory))
+      foreach (var subnode in nodes)
       {
         var attributes = Crypto.EncryptAttributes(new Attributes(subnode.Name, ((Node)subnode).Attributes), ((Node)subnode).Key);
-        var encryptedKey = Crypto.EncryptKey(((Node)subnode).Key, _masterKey);
-        (request as ImportFolderNodeRequest).Nodes.Add(new ImportFolderNodeRequest.ImportFolderNodeRequestData
-        {
-          Attributes = attributes.ToBase64(),
-          Key = encryptedKey.ToBase64(),
-          Type = NodeType.Directory,
-          PublicLinkId = subnode.Id
-        });
-      }
-      foreach (var subnode in nodes.Where(x => x.Type == NodeType.File))
-      {
-        var attributes = Crypto.EncryptAttributes(new Attributes(subnode.Name, ((Node)subnode).Attributes), ((Node)subnode).Key);
-        var encryptedKey = Crypto.EncryptKey(((Node)subnode).FullKey, _masterKey);
-        (request as ImportFolderNodeRequest).Nodes.Add(new ImportFolderNodeRequest.ImportFolderFileNodeRequestData
-        {
-          Attributes = attributes.ToBase64(),
-          Key = encryptedKey.ToBase64(),
-          Type = NodeType.File,
-          PublicLinkId = subnode.Id,
-          ParentId = subnode.ParentId
-        });
+        var encryptedKey = new byte[1];
+        if (subnode.Type == NodeType.Directory)
+          encryptedKey = Crypto.EncryptKey(((Node)subnode).Key, _masterKey);
+        else
+          encryptedKey = Crypto.EncryptKey(((Node)subnode).FullKey, _masterKey);
+
+        var parentId = subnode.ParentId;
+        if (nodes.Where(x => x.Id == subnode.ParentId).FirstOrDefault() == null)
+          (request as ImportFolderNodeRequest).Nodes.Add(new ImportFolderNodeRequest.ImportFolderNodeRequestData
+          {
+            Attributes = attributes.ToBase64(),
+            Key = encryptedKey.ToBase64(),
+            Type = subnode.Type,
+            PublicLinkId = subnode.Id
+          });
+
+        else
+          (request as ImportFolderNodeRequest).Nodes.Add(new ImportFolderNodeRequest.ImportFolderFileNodeRequestData
+          {
+            Attributes = attributes.ToBase64(),
+            Key = encryptedKey.ToBase64(),
+            Type = subnode.Type,
+            PublicLinkId = subnode.Id,
+            ParentId = parentId
+          });
       }
 
       var response = Request<GetNodesResponse>(request, _masterKey);
       return response.Nodes;
     }
+
 
     /// <summary>
     /// Retrieve an url to download specified node
@@ -848,7 +883,7 @@
       return GetFullNodesFromLink(uri, out var shareId).Select(x => new PublicNode(x as Node, shareId)).OfType<INode>();
     }  
 
-    internal IEnumerable<INode> GetFullNodesFromLink(Uri uri, out string shareId)
+    public IEnumerable<INode> GetFullNodesFromLink(Uri uri, out string shareId)
     {
       if (uri == null)
       {
@@ -863,7 +898,7 @@
       var getNodesRequest = new GetNodesRequest(shareId);
       var getNodesResponse = Request<GetNodesResponse>(getNodesRequest, key);
 
-      if(lastId == "")
+      if(lastId == "" || lastId == shareId)
         return getNodesResponse.Nodes.OfType<INode>();
       else
         return FilterNodes(getNodesResponse.Nodes, lastId);
