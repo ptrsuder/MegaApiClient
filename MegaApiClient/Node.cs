@@ -231,13 +231,18 @@
   }
 
   [DebuggerDisplay("PublicNode - Type: {Type} - Name: {Name} - Id: {Id}")]
-  internal class PublicNode : INode, INodeCrypto
+  public class PublicNode : INode, INodeCrypto
   {
     private readonly Node _node;
 
     internal PublicNode(Node node, string shareId)
     {
       _node = node;
+      ShareId = shareId;
+    }
+    public PublicNode(INode node, string shareId)
+    {
+      _node = node as Node;
       ShareId = shareId;
     }
 
