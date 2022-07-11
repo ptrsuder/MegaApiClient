@@ -1,19 +1,21 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26430.12
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32210.238
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F2689498-3543-43EA-8961-66385687E16F}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		key.snk = key.snk
 		LICENSE = LICENSE
 		README.md = README.md
-		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MegaApiClient.Tests", "MegaApiClient.Tests\MegaApiClient.Tests.csproj", "{16CAE1A9-1690-4EBE-BBE1-DF9249FCFCB9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MegaApiClient.Tests", "MegaApiClient.Tests\MegaApiClient.Tests.csproj", "{16CAE1A9-1690-4EBE-BBE1-DF9249FCFCB9}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MegaApiClient", "MegaApiClient\MegaApiClient.csproj", "{F9A241E2-4E26-493D-B07E-48AB86066C05}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MegaTest", "..\MegaApiClient_\MegaTest\MegaTest.csproj", "{FBA6EDDE-DF2C-4874-931A-32432EB5B9FA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,8 +31,15 @@ Global
 		{F9A241E2-4E26-493D-B07E-48AB86066C05}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F9A241E2-4E26-493D-B07E-48AB86066C05}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F9A241E2-4E26-493D-B07E-48AB86066C05}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FBA6EDDE-DF2C-4874-931A-32432EB5B9FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBA6EDDE-DF2C-4874-931A-32432EB5B9FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBA6EDDE-DF2C-4874-931A-32432EB5B9FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBA6EDDE-DF2C-4874-931A-32432EB5B9FA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A803F33C-8B20-4FE9-BC25-64C6DA49F591}
 	EndGlobalSection
 EndGlobal
