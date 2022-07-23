@@ -1,21 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>MegaApiClient is a C# .Net library to access http://mega.co.nz / http://mega.nz cloud storage and file hosting service.</Description>
-    <Copyright>Copyright © 2021</Copyright>
+    <Description>MegaApiClient is a C# .Net library to access http://mega.co.nz / http://mega.nz cloud storage and file hosting service. Edit of original library by gpailler.</Description>
+    <Copyright>Copyright © 2022</Copyright>
     <AssemblyTitle>Mega.co.nz client library</AssemblyTitle>
     <NeutralLanguage>en-US</NeutralLanguage>
     <VersionPrefix>1.0.0</VersionPrefix>
     <VersionSuffix></VersionSuffix>
     <Title>Mega.co.nz client library</Title>
-    <Authors>Gregoire Pailler</Authors>
+    <Authors>Gregoire Pailler, ptrsuder</Authors>
     <AssemblyName>MegaApiClient</AssemblyName>
-    <PackageProjectUrl>https://github.com/gpailler/MegaApiClient</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/ptrsuder/MegaApiClient</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageTags>mega;mega.co.nz;mega.nz;netstandard;netcore;mono;xamarin;uwp;cloud-storage</PackageTags>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/gpailler/MegaApiClient</RepositoryUrl>
+    <RepositoryUrl>https://github.com/ptrsuder/MegaApiClient</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -58,6 +58,9 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageId>MegaApiClientAlt</PackageId>
+    <Version>1.11.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <SourceRoot Include="$(MSBuildThisFileDirectory)/" />

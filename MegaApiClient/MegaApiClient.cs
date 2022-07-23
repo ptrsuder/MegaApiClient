@@ -612,6 +612,23 @@
 
       RequestBase request = null;
 
+      if (nodes.Length == 1 && nodes[0].ParentId == null)
+      {
+        var node = (Node)nodes[0];
+        
+          var attributes = Crypto.EncryptAttributes(new Attributes(node.Name, node.Attributes), node.Key);
+          var encryptedKey = Crypto.EncryptKey(node.FullKey, _masterKey);
+          request = ImportNodeRequest.ImportFileNodeRequest(
+            parent.Id,
+            attributes.ToBase64(),
+            encryptedKey.ToBase64(),
+            node.Id
+            );
+          var response2 = Request<GetNodesResponse>(request, _masterKey);
+          return response2.Nodes;
+       
+      }
+
       request = ImportFolderNodeRequest.ImportFolderRequest(parent.Id);
 
       foreach (var subnode in nodes)
@@ -621,10 +638,13 @@
         if (subnode.Type == NodeType.Directory)
           encryptedKey = Crypto.EncryptKey(((Node)subnode).Key, _masterKey);
         else
-          encryptedKey = Crypto.EncryptKey(((Node)subnode).FullKey, _masterKey);
+        {
+          var node = (Node)subnode;
+          encryptedKey = Crypto.EncryptKey(((Node)subnode).FullKey, _masterKey);            
+        }
 
         var parentId = subnode.ParentId;
-        if (nodes.Where(x => x.Id == subnode.ParentId).FirstOrDefault() == null)
+        if (parentId == null || nodes.Where(x => x.Id == parentId).FirstOrDefault() == null)
           (request as ImportFolderNodeRequest).Nodes.Add(new ImportFolderNodeRequest.ImportFolderNodeRequestData
           {
             Attributes = attributes.ToBase64(),
@@ -861,13 +881,13 @@
 
       EnsureLoggedIn();
 
-      GetPartsFromUri(uri, out var id, out var iv, out var metaMac, out var key, out var lastId);
+      GetPartsFromUri(uri, out var id, out var iv, out var metaMac, out var key, out var lastId, out var decryptedKey);
 
       // Retrieve attributes
       var downloadRequest = new DownloadUrlRequestFromId(id);
       var downloadResponse = Request<DownloadUrlResponse>(downloadRequest);
 
-      return new Node(id, downloadResponse, key, iv, metaMac);
+      return new Node(id, downloadResponse, key, iv, metaMac, decryptedKey);
     }
 
     /// <summary>
@@ -881,18 +901,21 @@
     public IEnumerable<INode> GetNodesFromLink(Uri uri)
     {
       return GetFullNodesFromLink(uri, out var shareId).Select(x => new PublicNode(x as Node, shareId)).OfType<INode>();
-    }  
+    }
 
     public IEnumerable<INode> GetFullNodesFromLink(Uri uri, out string shareId)
     {
       if (uri == null)
       {
         throw new ArgumentNullException("uri");
-      }
+      }     
 
       EnsureLoggedIn();
 
       GetPartsFromUri(uri, out shareId, out _, out _, out var key, out var lastId);
+
+      if (uri.OriginalString.Contains("mega.nz/file/") || uri.OriginalString.Contains("mega.io/file/"))
+        return new INode[] { GetFullNodeFromLink(uri) };
 
       // Retrieve attributes
       var getNodesRequest = new GetNodesRequest(shareId);
@@ -1452,7 +1475,27 @@
         Crypto.GetPartsFromDecryptedKey(decryptedKey, out iv, out metaMac, out key);
       }
       if (lastId == "") lastId = id;
-    }    
+    }
+
+    private void GetPartsFromUri(Uri uri, out string id, out byte[] iv, out byte[] metaMac, out byte[] key, out string lastId, out byte[] decryptedKey)
+    {
+      if (!TryGetPartsFromUri(uri, out id, out decryptedKey, out var isFolder, out lastId))
+      {
+        throw new ArgumentException(string.Format("Invalid uri. Unable to extract Id and Key from the uri {0}", uri));
+      }
+
+      if (isFolder)
+      {
+        iv = null;
+        metaMac = null;
+        key = decryptedKey;
+      }
+      else
+      {
+        Crypto.GetPartsFromDecryptedKey(decryptedKey, out iv, out metaMac, out key);
+      }
+      if (lastId == "") lastId = id;
+    }
 
     private bool TryGetPartsFromUri(Uri uri, out string id, out byte[] decryptedKey, out bool isFolder, out string lastId)
     {

@@ -24,7 +24,7 @@
       _sharedKeys = sharedKeys;
     }
 
-    internal Node(string id, DownloadUrlResponse downloadResponse, byte[] key, byte[] iv, byte[] metaMac)
+    internal Node(string id, DownloadUrlResponse downloadResponse, byte[] key, byte[] iv, byte[] metaMac, byte[] fullKey = null)
     {
       Id = id;
       Attributes = Crypto.DecryptAttributes(downloadResponse.SerializedAttributes.FromBase64(), key);
@@ -34,7 +34,9 @@
       Key = key;
       Iv = iv;
       MetaMac = metaMac;
+      FullKey = fullKey;
     }
+
 
     #region Public properties
 
