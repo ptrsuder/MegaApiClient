@@ -12,6 +12,8 @@ namespace CG.Web.MegaApiClient
 #endif
   using System.Net.Http;
   using System.Net.Http.Headers;
+  using System.Linq;
+  using System.Threading.Tasks;
 
   public class WebClient : IWebClient
   {
@@ -93,6 +95,26 @@ namespace CG.Web.MegaApiClient
             && response.ReasonPhrase == "Server Too Busy")
         {
           return new MemoryStream(Encoding.UTF8.GetBytes(((long)ApiResultCode.RequestFailedRetry).ToString()));
+        }
+
+        if (!response.IsSuccessStatusCode
+            && response.StatusCode == HttpStatusCode.PaymentRequired)
+        {
+          var challenge = response.Headers.GetValues("X-Hashcash").FirstOrDefault();
+          if(!string.IsNullOrEmpty(challenge))                    
+          {         
+              response.Dispose();
+              response = null;
+          }
+
+          var xhash = OptimizedHashcashGenerator.GenerateHashcashTokenAsync(challenge).Result;
+          
+          requestMessage = new HttpRequestMessage(HttpMethod.Post, url)
+          {
+            Content = content
+          };
+          requestMessage.Headers.Add("X-Hashcash", xhash);
+          response = _httpClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead).Result;
         }
 
         response.EnsureSuccessStatusCode();
