@@ -12,6 +12,8 @@
       : base("f")
     {
       C = 1;
+      Ca = 1;
+      UseSession = true;
 
       if (shareId != null)
       {
@@ -24,6 +26,9 @@
 
     [JsonProperty("c")]
     public int C { get; private set; }
+
+    [JsonProperty("ca")]
+    public int Ca { get; private set; }
 
     [JsonProperty("r")]
     public int R { get; private set; }
